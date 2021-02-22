@@ -1,0 +1,12 @@
+Metadata-Version: 1.2
+Name: django-sql-sniffer
+Version: 0.0.1
+Summary: Django SQL Sniffer
+Home-page: https://github.com/gruuya/django-sql-sniffer
+Author: Marko Grujic
+Author-email: markoog@gmail.com
+License: Apache 2.0
+Description: Minimally invasive analysis of SQL execution in a running process
+Keywords: django sql query remote process analysis
+Platform: UNKNOWN
+Requires-Python: >=3.5

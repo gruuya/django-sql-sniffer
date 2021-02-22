@@ -1,5 +1,6 @@
 import argparse
 import signal
+import time
 from multiprocessing.connection import Listener
 from django_sql_sniffer import analyzer, injector, sniffer
 
@@ -22,34 +23,24 @@ def main():
         source_code = source_file.read()
         code_to_inject = source_code.replace("PORT = 0", f"PORT = {port}")
         code_to_inject = code_to_inject.replace("LOGGING_ENABLED = False", f"LOGGING_ENABLED = {args.verbose}")
-        code_to_inject += "streamer_thread.start()"
+        code_to_inject += "sniffer.start()"
     injector.inject(str(args.pid), code_to_inject, args.verbose)
 
     # wait for callback
     print(f"[{__file__}] SQL sniffer injected, waiting for a reply")
     conn = listener.accept()
-
-    # receive packets and decode
-    print(f"[{__file__}] reply received, sniffing")
-    sql_analyzer = analyzer.SQLQueryAnalyzer()
-    signal.signal(signal.SIGINT, sql_analyzer.print_summary)
-    while True:
-        try:
-            sql_packet = conn.recv()
-            duration = sql_packet["duration"]
-            sql = sql_packet["sql"]
-            sql_analyzer.record_query(sql, duration)
-            if args.tail:
-                print(f"[{__file__}] Duration: {duration}, SQL:\n{sql}")
-        except EOFError:
-            print(f"[{__file__}] sniffer disconnected")
-            break
-        except Exception as e:
-            print(f"[{__file__}] error: {str(e)}")
-            break
-
-    conn.close()
     listener.close()
+
+    # receive and analyze executed SQL
+    print(f"[{__file__}] reply received, sniffer active")
+    sql_analyzer = analyzer.SQLQueryAnalyzer(conn, tail=args.tail)
+    signal.signal(signal.SIGTERM, sql_analyzer.stop)
+    signal.signal(signal.SIGINT, sql_analyzer.stop)
+    sql_analyzer.start()
+    while sql_analyzer.is_alive():
+        time.sleep(0.5)
+    injector.inject(str(args.pid), "sniffer.stop()", args.verbose)
+    sql_analyzer.print_summary()
 
 
 if __name__ == "__main__":

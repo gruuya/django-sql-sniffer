@@ -11,7 +11,7 @@ setuptools.setup(
     author='Marko Grujic',
     author_email='markoog@gmail.com',
     license='Apache 2.0',
-    install_requires=['django>=1.7.0'],
+    install_requires=['django'],
     python_requires='>=3.5',
     packages=['django_sql_sniffer'],
     entry_points=dict(

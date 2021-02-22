@@ -1,0 +1,3 @@
+[console_scripts]
+django-sql-sniffer = django_sql_sniffer.listener:main
+
