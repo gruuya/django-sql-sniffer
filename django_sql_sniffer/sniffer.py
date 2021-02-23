@@ -1,7 +1,8 @@
 import time
 import threading
 import queue
-import signal
+import logging
+import sys
 from multiprocessing.connection import Client
 try:
     from django.db.backends.utils import CursorWrapper  # django >= 1.7.x
@@ -15,9 +16,17 @@ PORT = 0
 LOGGING_ENABLED = False
 
 
-def log(message):
-    if LOGGING_ENABLED:
-        print(message)
+def configure_logger(name, enabled=False):
+    logger = logging.Logger(name, logging.DEBUG)
+    if not enabled:
+        logger.addHandler(logging.NullHandler())
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter(f"%(asctime)s %(levelname)s | [{logger.name}] %(message)s"))
+        handler.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+    return logger
 
 
 class DjangoSQLSniffer(threading.Thread):
@@ -25,10 +34,11 @@ class DjangoSQLSniffer(threading.Thread):
     def __init__(self):
         self._conn = None
         self._running = False
-        super().__init__(name=self.__class__.__name__)
+        self.logger = configure_logger("django_sql_sniffer", LOGGING_ENABLED)
+        super().__init__(name=self.__class__.__name__, daemon=True)
 
     def monkey_patch_django_sql_sniffer(self):
-        log(f"[{self.__class__.__name__}] Monkey patching Django SQL Cursor Wrapper")
+        self.logger.debug("monkey patching Django SQL Cursor Wrapper")
 
         def execute(self, sql, params=None):
             t0 = time.time()
@@ -50,27 +60,28 @@ class DjangoSQLSniffer(threading.Thread):
         CursorWrapper.executemany = executemany
 
     def rollback_django_sql_sniffer(self):
-        log(f"[{self.__class__.__name__}] Rolling back Django SQL Cursor Wrapper monkey patch")
+        self.logger.debug("rolling back Django SQL Cursor Wrapper monkey patch")
 
         CursorWrapper.execute = _original_execute
         CursorWrapper.executemany = _original_executemany
 
     def start(self):
-        log(f"[{self.__class__.__name__}] Starting")
+        self.logger.debug("starting")
         self.monkey_patch_django_sql_sniffer()
         self._conn = Client(('localhost', PORT))
         self._running = True
         super().start()
 
     def stop(self, *a, **kw):
+        self.logger.debug("stopping")
         self._running = False
 
     def run(self):
-        log(f"[{self.__class__.__name__}] Started")
+        self.logger.debug("started")
         while self._running:
             try:
                 sql, duration = executed_sql.get(timeout=5)
-                log(f"[{self.__class__.__name__}] Streaming SQL {sql}")
+                self.logger.debug(f"streaming SQL {sql}")
                 sql_packet = dict(
                     sql=sql,
                     duration=duration
@@ -78,20 +89,18 @@ class DjangoSQLSniffer(threading.Thread):
 
                 self._conn.send(sql_packet)
             except queue.Empty:
-                log(f"[{self.__class__.__name__}] No SQL executions in the last 5 seconds")
+                self.logger.debug("no SQL executions in the last 5 seconds")
             except BrokenPipeError:
-                log(f"[{self.__class__.__name__}] SQL streaming socket closed, exiting")
+                self.logger.info("streaming socket closed, exiting")
                 self._running = False
             except Exception as e:
-                log(f"[{self.__class__.__name__}] Unexpected error: {str(e)}")
+                self.logger.warning(f"unexpected error: {str(e)}")
                 self._running = False
 
         self._conn.close()
         self.rollback_django_sql_sniffer()
-        log(f"[{self.__class__.__name__}] Done")
+        self.logger.debug("done")
 
 
 executed_sql = queue.Queue()
 sniffer = DjangoSQLSniffer()
-signal.signal(signal.SIGTERM, sniffer.stop)
-signal.signal(signal.SIGINT, sniffer.stop)

@@ -3,6 +3,7 @@ try:
     import sqlparse
 except ImportError:
     sqlparse = None
+from django_sql_sniffer import sniffer
 
 
 def format_sql(sql):
@@ -11,8 +12,8 @@ def format_sql(sql):
     return sql
 
 
-class SQLQueryAnalyzer(threading.Thread):
-    def __init__(self, conn, tail=False, top=5, by_total=False, by_count=False):
+class SQLAnalyzer(threading.Thread):
+    def __init__(self, conn, verbose=False, tail=False, top=3, by_total=False, by_count=False):
         super().__init__(name=self.__class__.__name__)
         self._conn = conn
         self._executed_queries = dict()
@@ -21,6 +22,7 @@ class SQLQueryAnalyzer(threading.Thread):
         self._by_total = by_total
         self._by_count = by_count
         self._running = False
+        self.logger = sniffer.configure_logger(__name__, verbose)
 
     def record_query(self, sql, duration):
         if sql in self._executed_queries:
@@ -40,9 +42,9 @@ class SQLQueryAnalyzer(threading.Thread):
         print(format_sql(sql))
         print("-" * 80)
 
-    def print_summary(self):
+    def print_summary(self, *a, **kw):
         sort_field = "count" if self._by_count else "total" if self._by_total else "max"
-        sorted_queries = sorted(self._executed_queries.items(), key=lambda x: x[1][sort_field])
+        sorted_queries = sorted(self._executed_queries.items(), key=lambda x: x[1][sort_field], reverse=True)
 
         print("**************************    SQL EXECUTION SUMMARY    **************************")
         for sql, stats in sorted_queries[:self._top]:
@@ -52,26 +54,30 @@ class SQLQueryAnalyzer(threading.Thread):
         print("=" * 80)
 
     def start(self):
+        self.logger.debug("starting")
         self._running = True
         super().start()
+
+    def stop(self, *a, **kw):
+        self.logger.debug("stopping")
+        self._running = False
 
     def run(self):
         while self._running:
             try:
-                sql_packet = self._conn.recv()
-                duration = sql_packet["duration"]
-                sql = sql_packet["sql"]
-                self.record_query(sql, duration)
-                if self._tail:
-                    self.print_query(sql, duration)
+                if self._conn.poll(3):
+                    sql_packet = self._conn.recv()
+                    duration = sql_packet["duration"]
+                    sql = sql_packet["sql"]
+                    self.record_query(sql, duration)
+                    if self._tail:
+                        self.print_query(sql, duration)
             except EOFError:
-                print(f"[{self.__class__.__name__}] sniffer disconnected")
+                self.logger.info("sniffer disconnected, exiting")
                 self._running = False
             except Exception as e:
-                print(f"[{self.__class__.__name__}] error: {str(e)}")
+                self.logger.error(f"unexpected error: {str(e)}", exc_info=True)
                 self._running = False
 
         self._conn.close()
-
-    def stop(self, *a, **kw):
-        self._running = False
+        self.logger.debug("done")

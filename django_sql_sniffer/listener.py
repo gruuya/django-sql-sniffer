@@ -11,12 +11,14 @@ def main():
     parser.add_argument("-p", "--pid", help="The id of the process executing Django SQL queries.")
     parser.add_argument("-v", "--verbose", action='store_true', help="Verbose mode - enables non-SQL logging on server and client (injected) side.")
     parser.add_argument("-t", "--tail", action='store_true', help="Log SQL queries as they are executed in tail mode.")
+    parser.add_argument("-n", "--top", default=3, help="Log SQL queries as they are executed in tail mode.")
     args = parser.parse_args()
+    logger = sniffer.configure_logger(__name__, args.verbose)
 
     # create socket and listen for a connection
     listener = Listener(('localhost', 0))  # will force OS to assign a random available port
     _, port = listener.address
-    print(f"[{__file__}] listening on port {port}")
+    logger.debug(f"listening on port {port}")
 
     # inject sniffer monkey patch
     with open(sniffer.__file__, "r") as source_file:
@@ -27,16 +29,19 @@ def main():
     injector.inject(str(args.pid), code_to_inject, args.verbose)
 
     # wait for callback
-    print(f"[{__file__}] SQL sniffer injected, waiting for a reply")
+    logger.debug("SQL sniffer injected, waiting for a reply")
     conn = listener.accept()
     listener.close()
 
     # receive and analyze executed SQL
-    print(f"[{__file__}] reply received, sniffer active")
-    sql_analyzer = analyzer.SQLQueryAnalyzer(conn, tail=args.tail)
+    logger.debug("reply received, sniffer active")
+    sql_analyzer = analyzer.SQLAnalyzer(conn, verbose=args.verbose, tail=args.tail, top=args.top)
     signal.signal(signal.SIGTERM, sql_analyzer.stop)
     signal.signal(signal.SIGINT, sql_analyzer.stop)
+    if hasattr(signal, "SIGINFO"):
+        signal.signal(signal.SIGINFO, sql_analyzer.print_summary)  # print summary on ^T, without exiting the process
     sql_analyzer.start()
+
     while sql_analyzer.is_alive():
         time.sleep(0.5)
     injector.inject(str(args.pid), "sniffer.stop()", args.verbose)

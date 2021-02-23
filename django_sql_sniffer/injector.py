@@ -1,9 +1,12 @@
 import os
 import subprocess
 import tempfile
+from django_sql_sniffer import sniffer
 
 
 def inject(pid, code_to_inject, verbose=True):
+    logger = sniffer.configure_logger(__name__, verbose)
+
     with tempfile.NamedTemporaryFile(mode="r+") as temp_file:
         temp_file.write(code_to_inject)
         temp_file.flush()
@@ -26,10 +29,9 @@ def inject(pid, code_to_inject, verbose=True):
         final_command = " ".join(command)
         res = subprocess.run(final_command, capture_output=True, check=True, shell=True)
 
-    if verbose:
-        print(f"[{__file__}] injected command resulted in return code {res.returncode} with output:\n{res.stdout}")
+    logger.debug(f"injected command resulted in return code {res.returncode} with output:\n{res.stdout}")
     if res.stderr != b"":
-        print(f"[{__file__}] injected command resulted in error:\n{res.stderr}")
+        logger.error(f"injected command resulted in error:\n{res.stderr}")
 
 
 # for debugging purposes
