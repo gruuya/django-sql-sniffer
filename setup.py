@@ -10,7 +10,7 @@ setuptools.setup(
     url='https://github.com/gruuya/django-sql-sniffer',
     author='Marko Grujic',
     author_email='markoog@gmail.com',
-    license='Apache 2.0',
+    license='MIT',
     install_requires=['django'],
     python_requires='>=3.5',
     packages=['django_sql_sniffer'],

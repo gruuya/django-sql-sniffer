@@ -7,11 +7,13 @@ from django_sql_sniffer import analyzer, injector, sniffer
 
 def main():
     # parse arguments
-    parser = argparse.ArgumentParser(description="Analyze SQL queries originating from a running process.")
-    parser.add_argument("-p", "--pid", help="The id of the process executing Django SQL queries.")
-    parser.add_argument("-v", "--verbose", action='store_true', help="Verbose mode - enables non-SQL logging on server and client (injected) side.")
-    parser.add_argument("-t", "--tail", action='store_true', help="Log SQL queries as they are executed in tail mode.")
-    parser.add_argument("-n", "--top", default=3, help="Log SQL queries as they are executed in tail mode.")
+    parser = argparse.ArgumentParser(description="Analyze SQL queries originating from a running process")
+    parser.add_argument("-p", "--pid", help="The id of the process executing Django SQL queries")
+    parser.add_argument("-t", "--tail", action='store_true', help="Log queries as they are executed in tail mode")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Verbose mode - enables non-SQL logging on server and client (injected) side")
+    parser.add_argument("-s", "--sum", action='store_true', help="Sort query summary by total combined time")
+    parser.add_argument("-c", "--count", action='store_true', help="Sort query summary by execution count")
+    parser.add_argument("-n", "--number", default=3, help="Number of top queries and their stats to display in summary")
     args = parser.parse_args()
     logger = sniffer.configure_logger(__name__, args.verbose)
 
@@ -35,7 +37,7 @@ def main():
 
     # receive and analyze executed SQL
     logger.debug("reply received, sniffer active")
-    sql_analyzer = analyzer.SQLAnalyzer(conn, verbose=args.verbose, tail=args.tail, top=args.top)
+    sql_analyzer = analyzer.SQLAnalyzer(conn, verbose=args.verbose, tail=args.tail, top=args.number, by_sum=args.sum, by_count=args.count)
     signal.signal(signal.SIGTERM, sql_analyzer.stop)
     signal.signal(signal.SIGINT, sql_analyzer.stop)
     if hasattr(signal, "SIGINFO"):

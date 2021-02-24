@@ -13,13 +13,13 @@ def format_sql(sql):
 
 
 class SQLAnalyzer(threading.Thread):
-    def __init__(self, conn, verbose=False, tail=False, top=3, by_total=False, by_count=False):
+    def __init__(self, conn, verbose=False, tail=False, top=3, by_sum=False, by_count=False):
         super().__init__(name=self.__class__.__name__)
         self._conn = conn
         self._executed_queries = dict()
         self._tail = tail
         self._top = top
-        self._by_total = by_total
+        self._by_sum = by_sum
         self._by_count = by_count
         self._running = False
         self.logger = sniffer.configure_logger(__name__, verbose)
@@ -28,27 +28,27 @@ class SQLAnalyzer(threading.Thread):
         if sql in self._executed_queries:
             self._executed_queries[sql]["count"] += 1
             self._executed_queries[sql]["max"] = max(duration, self._executed_queries[sql]["max"])
-            self._executed_queries[sql]["total"] += duration
+            self._executed_queries[sql]["sum"] += duration
         else:
             self._executed_queries[sql] = dict(
                 count=1,
                 max=duration,
-                total=duration
+                sum=duration
             )
 
     def print_query(self, sql, duration):
         stats = self._executed_queries[sql]
-        print("Count: ", stats["count"], "; Duration: ", duration, "; Max Duration: ", stats["max"], "; Total Duration ", stats["total"], "; Query:")
+        print("Count: ", stats["count"], "; Duration: ", duration, "; Max Duration: ", stats["max"], "; Total Combined Duration ", stats["sum"], "; Query:")
         print(format_sql(sql))
         print("-" * 80)
 
     def print_summary(self, *a, **kw):
-        sort_field = "count" if self._by_count else "total" if self._by_total else "max"
+        sort_field = "count" if self._by_count else "sum" if self._by_sum else "max"
         sorted_queries = sorted(self._executed_queries.items(), key=lambda x: x[1][sort_field], reverse=True)
 
         print("**************************    SQL EXECUTION SUMMARY    **************************")
         for sql, stats in sorted_queries[:self._top]:
-            print("Count: ", stats["count"], "; Max Duration: ", stats["max"], "; Total Duration ", stats["total"], "; Query:")
+            print("Count: ", stats["count"], "; Max Duration: ", stats["max"], "; Total Combined Duration ", stats["sum"], "; Query:")
             print(format_sql(sql))
             print("-" * 80)
         print("=" * 80)
