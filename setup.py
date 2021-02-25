@@ -1,9 +1,10 @@
 import setuptools
+import django_sql_sniffer
 
 
 setuptools.setup(
     name='django-sql-sniffer',
-    version="0.0.1",
+    version=django_sql_sniffer.version,
     description='Django SQL Sniffer',
     long_description='Minimally invasive analysis of SQL execution in a running process',
     keywords='django sql query remote process analysis',
