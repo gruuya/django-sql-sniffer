@@ -13,7 +13,7 @@ Run the tool by passing it a process id which is to be analyzed
 django-sql-sniffer -p 76441
 ```
 `Ctrl + C` to stop and show the query stats summary. Here's a short demo:
-![demo](demo.webp)
+![https://raw.githubusercontent.com/gruuya/django-sql-sniffer/master/demo.webp](demo.webp)
 By default, stats summary shows queries sorted by max duration; the possible options include:
 - `-t` print queries in tail mode, i.e. as they are executed
 - `-c` sort stats summary by query count

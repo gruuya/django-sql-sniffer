@@ -2,11 +2,16 @@ import setuptools
 import django_sql_sniffer
 
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+
 setuptools.setup(
     name='django-sql-sniffer',
     version=django_sql_sniffer.version,
     description='Django SQL Sniffer',
-    long_description='Minimally invasive analysis of SQL execution in a running process',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     keywords='django sql query remote process analysis',
     url='https://github.com/gruuya/django-sql-sniffer',
     author='Marko Grujic',

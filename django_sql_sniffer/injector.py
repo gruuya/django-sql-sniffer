@@ -1,4 +1,4 @@
-import os
+import platform
 import subprocess
 import tempfile
 from django_sql_sniffer import sniffer
@@ -11,7 +11,7 @@ def inject(pid, code_to_inject, verbose=True):
         temp_file.write(code_to_inject)
         temp_file.flush()
 
-        if os.uname()[0] == 'Darwin':
+        if platform.system() == 'Darwin':
             args = [
                 "--one-line 'expr void* $gil=(void *) PyGILState_Ensure()'",
                 f"--one-line 'expr (void) PyRun_SimpleString(\"exec(open(\\\"{temp_file.name}\\\").read())\")'",
@@ -27,7 +27,7 @@ def inject(pid, code_to_inject, verbose=True):
             command = ["gdb", "-p", pid, "-batch"] + args
 
         final_command = " ".join(command)
-        res = subprocess.run(final_command, capture_output=True, check=True, shell=True)
+        res = subprocess.run(final_command, check=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     logger.debug(f"injected command resulted in return code {res.returncode} with output:\n{res.stdout}")
     if res.stderr != b"":
