@@ -1,9 +1,8 @@
-import threading
 try:
     import sqlparse
 except ImportError:
     sqlparse = None
-from django_sql_sniffer import sniffer, version
+from django_sql_sniffer import version
 
 
 SQL_STATS_TEXT = """
@@ -26,17 +25,13 @@ def format_duration(duration):
     return "{0:0.9f}".format(duration)
 
 
-class SQLAnalyzer(threading.Thread):
-    def __init__(self, conn, verbose=False, tail=False, top=3, by_sum=False, by_count=False):
-        super().__init__(name=self.__class__.__name__)
-        self._conn = conn
+class SQLAnalyzer:
+    def __init__(self, tail=False, top=3, by_sum=False, by_count=False):
         self._executed_queries = dict()
         self._tail = tail
         self._top = top
         self._by_sum = by_sum
         self._by_count = by_count
-        self._running = False
-        self.logger = sniffer.configure_logger(__name__, verbose)
 
     def record_query(self, sql, duration):
         if sql in self._executed_queries:
@@ -49,6 +44,9 @@ class SQLAnalyzer(threading.Thread):
                 max=duration,
                 sum=duration
             )
+
+        if self._tail:
+            self.print_query(sql, duration)
 
     def print_query(self, sql, duration):
         stats = self._executed_queries[sql]
@@ -70,32 +68,3 @@ class SQLAnalyzer(threading.Thread):
             print(format_sql(sql))
             print("-" * DELIMETER_LENGTH)
         print("=" * DELIMETER_LENGTH)
-
-    def start(self):
-        self.logger.debug("starting")
-        self._running = True
-        super().start()
-
-    def stop(self, *a, **kw):
-        self.logger.debug("stopping")
-        self._running = False
-
-    def run(self):
-        while self._running:
-            try:
-                if self._conn.poll(3):
-                    sql_packet = self._conn.recv()
-                    duration = sql_packet["duration"]
-                    sql = sql_packet["sql"]
-                    self.record_query(sql, duration)
-                    if self._tail:
-                        self.print_query(sql, duration)
-            except EOFError:
-                self.logger.info("sniffer disconnected, exiting")
-                self._running = False
-            except Exception as e:
-                self.logger.error(f"unexpected error: {str(e)}", exc_info=True)
-                self._running = False
-
-        self._conn.close()
-        self.logger.debug("done")

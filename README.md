@@ -1,19 +1,20 @@
 Django SQL Sniffer
 ==================
 A simple command line tool for analyzing Django ORM SQL execution from a running process.
-Minimally invasive and granular - no need to change logging config or restart the process.
+Minimally invasive and granular - no need to change the logging config or the source code 
+of the target process, and no need to restart the process.
 
 # Usage
 Install though pip
 ```
 pip install django-sql-sniffer
 ```
-Run the tool by passing it a process id which is to be analyzed
+Run the tool by passing it the target process id
 ```
 django-sql-sniffer -p 76441
 ```
-`Ctrl + C` to stop and show the query stats summary. Here's a short demo:
-![https://raw.githubusercontent.com/gruuya/django-sql-sniffer/master/demo.webp](demo.webp)
+`Ctrl + C` to stop and show the query stats summary. Take a look at a short demo:
+![demo](demo.webp)
 By default, stats summary shows queries sorted by max duration; the possible options include:
 - `-t` print queries in tail mode, i.e. as they are executed
 - `-c` sort stats summary by query count
