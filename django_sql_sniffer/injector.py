@@ -20,9 +20,9 @@ def inject(pid, code_to_inject, verbose=True):
             command = ["lldb", "-p", pid, "-b"] + args
         else:
             args = [
-                "-eval-command='call PyGILState_Ensure()'",
-                f"-eval-command='call PyRun_SimpleString(\"exec(open(\\\"{temp_file.name}\\\").read())\")'",
-                "-eval-command='call PyGILState_Release($1)'"
+                "-eval-command='call (char *) PyGILState_Ensure()'",
+                f"-eval-command='call (void) PyRun_SimpleString(\"exec(open(\\\"{temp_file.name}\\\").read())\")'",
+                "-eval-command='call (void) PyGILState_Release($1)'"
             ]
             command = ["gdb", "-p", pid, "-batch"] + args
 

@@ -50,8 +50,7 @@ def test_end_2_end():
     tp.kill()
 
     # check all queries captured
-    for query in queries:
-        assert query in lt.analyzer._executed_queries
+    assert set(queries) == set(lt.analyzer._executed_queries.keys())
 
     # check that listener shuts down once it detects the target process is not alive
     time.sleep(4)
